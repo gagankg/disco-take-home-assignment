@@ -15,6 +15,7 @@ type Tone = "positive" | "negative" | "neutral" | "warning";
 type ChartAnnotation = { index: number; label: string };
 type SortDirection = "asc" | "desc";
 type OfferFilter = OfferStatus | "All";
+type ProductState = "default" | "loading" | "claimed" | "error" | "empty";
 type TrendPeriod = {
   values: number[];
   labels: string[];
@@ -108,6 +109,14 @@ const portfolio = {
 };
 
 const ranges: Range[] = ["7 days", "30 days", "90 days"];
+const productStates: ProductState[] = ["default", "loading", "claimed", "error", "empty"];
+const productStateLabels: Record<ProductState, string> = {
+  default: "Default",
+  loading: "Loading",
+  claimed: "Claimed",
+  error: "Error",
+  empty: "Empty",
+};
 const chartPeriodLabels: Record<Range, string[]> = {
   "7 days": ["Aug 22", "Aug 23", "Aug 24", "Aug 25", "Aug 26", "Aug 27", "Today"],
   "30 days": ["Jul 28", "Aug 2", "Aug 7", "Aug 12", "Aug 17", "Aug 22", "Today"],
@@ -680,6 +689,7 @@ export default function Home() {
   const [query, setQuery] = useState("");
   const [ctrChangeSort, setCtrChangeSort] = useState<SortDirection | null>(null);
   const [reviewPlacement, setReviewPlacement] = useState<PlacementPerformance | null>(null);
+  const [productState, setProductState] = useState<ProductState>("default");
 
   const selectedOffer = useMemo(
     () => offers.find((offer) => offer.id === selectedOfferId) ?? offers[0],
@@ -727,38 +737,65 @@ export default function Home() {
     setReviewPlacement(null);
   }
 
+  function updateProductState(nextState: ProductState) {
+    setProductState(nextState);
+    setReviewPlacement(null);
+
+    if (nextState !== "default") {
+      setSelectedOfferId(null);
+      setActiveNav("Overview");
+    }
+  }
+
+  const mainContent =
+    productState === "loading" ? (
+      <LoadingDashboardState />
+    ) : productState === "claimed" ? (
+      <ClaimedProductState onContinue={() => updateProductState("default")} />
+    ) : productState === "error" ? (
+      <ErrorProductState onRetry={() => updateProductState("default")} />
+    ) : productState === "empty" ? (
+      <EmptyProductState onReset={() => updateProductState("default")} />
+    ) : selectedOfferId ? (
+      <OfferDetail
+        offer={selectedOffer}
+        range={range}
+        setRange={setRange}
+        onBack={openOffers}
+        onOpenPlacement={setReviewPlacement}
+      />
+    ) : (
+      <Overview
+        mode={activeNav === "Offers" ? "offers" : "overview"}
+        filteredOffers={filteredOffers}
+        statusFilter={statusFilter}
+        setStatusFilter={setStatusFilter}
+        placementFilter={placementFilter}
+        setPlacementFilter={setPlacementFilter}
+        query={query}
+        setQuery={setQuery}
+        range={range}
+        setRange={setRange}
+        ctrChangeSort={ctrChangeSort}
+        setCtrChangeSort={setCtrChangeSort}
+        onOpenOffer={openOffer}
+      />
+    );
+
   return (
     <main className="min-h-screen bg-[#fafbfd] text-[#101218]">
       <div className="flex min-h-screen">
         <Sidebar activeNav={activeNav} onSelect={setActiveNav} onOverview={openOverview} />
         <section className="min-w-0 flex-1">
-          <TopBar activeNav={activeNav} onOverview={openOverview} onOffers={openOffers} />
+          <TopBar
+            activeNav={activeNav}
+            productState={productState}
+            onOverview={openOverview}
+            onOffers={openOffers}
+            onProductStateChange={updateProductState}
+          />
           <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6 lg:gap-6 lg:px-8">
-            {selectedOfferId ? (
-              <OfferDetail
-                offer={selectedOffer}
-                range={range}
-                setRange={setRange}
-                onBack={openOffers}
-                onOpenPlacement={setReviewPlacement}
-              />
-            ) : (
-              <Overview
-                mode={activeNav === "Offers" ? "offers" : "overview"}
-                filteredOffers={filteredOffers}
-                statusFilter={statusFilter}
-                setStatusFilter={setStatusFilter}
-                placementFilter={placementFilter}
-                setPlacementFilter={setPlacementFilter}
-                query={query}
-                setQuery={setQuery}
-                range={range}
-                setRange={setRange}
-                ctrChangeSort={ctrChangeSort}
-                setCtrChangeSort={setCtrChangeSort}
-                onOpenOffer={openOffer}
-              />
-            )}
+            {mainContent}
           </div>
         </section>
       </div>
@@ -826,12 +863,16 @@ function Sidebar({
 
 function TopBar({
   activeNav,
+  productState,
   onOverview,
   onOffers,
+  onProductStateChange,
 }: {
   activeNav: string;
+  productState: ProductState;
   onOverview: () => void;
   onOffers: () => void;
+  onProductStateChange: (value: ProductState) => void;
 }) {
   const items = [
     { label: "Overview", onClick: onOverview },
@@ -840,7 +881,7 @@ function TopBar({
 
   return (
     <header className="border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
-      <div className="mx-auto flex min-h-16 max-w-[1440px] flex-col justify-center gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-0">
+      <div className="mx-auto flex min-h-16 max-w-[1440px] flex-col justify-center gap-3 px-4 py-3 sm:px-6 lg:min-h-16 lg:flex-row lg:items-center lg:justify-between lg:px-8">
         <div className="flex items-center gap-3">
           <span className="flex size-8 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed_0%,#3b82f6_100%)] text-xs font-bold text-white shadow-sm lg:hidden">
             D
@@ -849,6 +890,10 @@ function TopBar({
             Brand performance dashboard
           </h1>
         </div>
+        <ProductStateControl
+          value={productState}
+          onChange={onProductStateChange}
+        />
         <nav
           aria-label="Mobile navigation"
           className="grid grid-cols-2 gap-1 rounded-xl border border-[#e5e7eb] bg-[#f5f7fa] p-1 lg:hidden"
@@ -869,6 +914,193 @@ function TopBar({
         </nav>
       </div>
     </header>
+  );
+}
+
+function ProductStateControl({
+  value,
+  onChange,
+}: {
+  value: ProductState;
+  onChange: (value: ProductState) => void;
+}) {
+  return (
+    <div className="flex max-w-full items-center gap-2 overflow-x-auto rounded-xl border border-[#e5e7eb] bg-[#f5f7fa] p-1">
+      {productStates.map((state) => (
+        <button
+          key={state}
+          className={`h-8 shrink-0 rounded-lg px-2.5 text-xs font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed] ${
+            value === state
+              ? "bg-white text-[#7c3aed] shadow-sm ring-1 ring-[#ddd6fe]"
+              : "text-[#647084] hover:bg-white hover:text-[#101218]"
+          }`}
+          onClick={() => onChange(state)}
+        >
+          {productStateLabels[state]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LoadingDashboardState() {
+  return (
+    <section className="flex flex-col gap-5" aria-busy="true" aria-live="polite">
+      <h2 className="sr-only">Loading dashboard</h2>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, index) => (
+          <SkeletonCard key={index} />
+        ))}
+      </div>
+      <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5">
+        <div className="h-5 w-44 rounded-full bg-[#e5e7eb]" />
+        <div className="mt-5 grid gap-4 xl:grid-cols-2">
+          <SkeletonOfferCard />
+          <SkeletonOfferCard />
+        </div>
+      </div>
+      <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="h-5 w-32 rounded-full bg-[#e5e7eb]" />
+          <div className="h-9 w-full rounded-lg bg-[#e5e7eb] sm:w-56" />
+        </div>
+        <div className="mt-5 space-y-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="h-14 rounded-xl bg-[#f5f7fa]" />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ClaimedProductState({ onContinue }: { onContinue: () => void }) {
+  return (
+    <StatePanel
+      eyebrow="Claimed"
+      title="Offer claim confirmed"
+      body="The post-purchase offer has moved into a claimed state. The brand manager can continue monitoring follow-on claim rate, revenue, and device performance from the dashboard."
+      tone="success"
+      primaryAction="Return to dashboard"
+      onPrimaryAction={onContinue}
+    />
+  );
+}
+
+function ErrorProductState({ onRetry }: { onRetry: () => void }) {
+  return (
+    <StatePanel
+      eyebrow="Error"
+      title="Offer performance could not load"
+      body="The dashboard could not retrieve the latest offer performance data. Keep the existing layout stable and give the user a clear path to retry."
+      tone="error"
+      primaryAction="Retry"
+      onPrimaryAction={onRetry}
+    />
+  );
+}
+
+function EmptyProductState({ onReset }: { onReset: () => void }) {
+  return (
+    <StatePanel
+      eyebrow="Empty"
+      title="No offers to review"
+      body="There are no active post-purchase offers in this view. The empty state keeps the dashboard useful without showing misleading metrics or blank tables."
+      tone="neutral"
+      primaryAction="Show default data"
+      onPrimaryAction={onReset}
+    />
+  );
+}
+
+function StatePanel({
+  eyebrow,
+  title,
+  body,
+  tone,
+  primaryAction,
+  onPrimaryAction,
+}: {
+  eyebrow: string;
+  title: string;
+  body: string;
+  tone: "success" | "error" | "neutral";
+  primaryAction: string;
+  onPrimaryAction: () => void;
+}) {
+  const toneClass = {
+    success: {
+      badge: "border-[#bbf7d0] bg-[#ecfdf5] text-[#047857]",
+      icon: "bg-[#10b981]",
+      ring: "ring-[#bbf7d0]",
+      mark: "✓",
+    },
+    error: {
+      badge: "border-[#fecaca] bg-[#fef2f2] text-[#b42318]",
+      icon: "bg-[#b42318]",
+      ring: "ring-[#fecaca]",
+      mark: "!",
+    },
+    neutral: {
+      badge: "border-[#ddd6fe] bg-[#f5f3ff] text-[#7c3aed]",
+      icon: "bg-[linear-gradient(135deg,#7c3aed_0%,#3b82f6_100%)]",
+      ring: "ring-[#ddd6fe]",
+      mark: "0",
+    },
+  }[tone];
+
+  return (
+    <section className="rounded-2xl border border-[#e5e7eb] bg-white p-5 shadow-sm sm:p-8">
+      <div className="mx-auto flex max-w-2xl flex-col items-start gap-5 text-left sm:items-center sm:text-center">
+        <span
+          className={`flex size-12 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm ring-8 ${toneClass.icon} ${toneClass.ring}`}
+          aria-hidden="true"
+        >
+          {toneClass.mark}
+        </span>
+        <div>
+          <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClass.badge}`}>
+            {eyebrow}
+          </span>
+          <h2 className="mt-4 text-2xl font-semibold tracking-normal text-[#101218]">
+            {title}
+          </h2>
+          <p className="mt-3 text-sm leading-6 text-[#687080]">{body}</p>
+        </div>
+        <button
+          className="inline-flex h-10 items-center rounded-lg bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-[#2b3442] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
+          onClick={onPrimaryAction}
+        >
+          {primaryAction}
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function SkeletonCard() {
+  return (
+    <div className="animate-pulse rounded-2xl border border-[#e5e7eb] bg-white px-4 py-3 shadow-sm">
+      <div className="h-3 w-20 rounded-full bg-[#e5e7eb]" />
+      <div className="mt-3 h-6 w-16 rounded-full bg-[#d1d5db]" />
+      <div className="mt-3 h-3 w-28 rounded-full bg-[#eef2f7]" />
+    </div>
+  );
+}
+
+function SkeletonOfferCard() {
+  return (
+    <div className="animate-pulse rounded-2xl border border-[#e5e7eb] bg-white p-4">
+      <div className="flex items-start gap-3">
+        <div className="size-14 rounded-lg bg-[#e5e7eb]" />
+        <div className="flex-1">
+          <div className="h-4 w-3/4 rounded-full bg-[#d1d5db]" />
+          <div className="mt-3 h-3 w-full rounded-full bg-[#eef2f7]" />
+          <div className="mt-2 h-3 w-2/3 rounded-full bg-[#eef2f7]" />
+        </div>
+      </div>
+      <div className="mt-6 h-9 w-28 rounded-lg bg-[#e5e7eb]" />
+    </div>
   );
 }
 
@@ -1176,6 +1408,14 @@ function OfferTable({
     );
   }
 
+  function clearOfferFilters() {
+    setStatusFilter("All");
+    setPlacementFilter("All");
+    setQuery("");
+  }
+
+  const hasOffers = offers.length > 0;
+
   return (
     <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white" aria-labelledby="offers-heading">
       <div className="border-b border-[#e5e7e7] p-5">
@@ -1226,87 +1466,14 @@ function OfferTable({
           ))}
         </div>
       </div>
-      <div className="divide-y divide-[#eef2f7] md:hidden">
-        {offers.map((offer) => (
-          <article
-            key={offer.id}
-            className="cursor-pointer bg-white p-4 transition hover:bg-[#fafbfd]"
-            role="button"
-            tabIndex={0}
-            onClick={() => onOpenOffer(offer.id)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onOpenOffer(offer.id);
-              }
-            }}
-          >
-            <div className="flex items-start gap-3">
-              <ProductThumbnail
-                image={offer.productImage}
-                alt={offer.productImageAlt}
-                productName={offer.name}
-                size="sm"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-col gap-2">
-                  <h3 className="text-sm font-semibold leading-5 text-[#101218]">
-                    {offer.name}
-                  </h3>
-                  <StatusBadge status={offer.status} />
-                </div>
-                <p className="mt-2 text-xs leading-5 text-[#687080]">{offer.proposition}</p>
-              </div>
-            </div>
-            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-              <MobileMetric label="CTR" value={offer.ctrLabel} />
-              <MobileMetric label="CTR change" value={<CtrChange value={offer.ctrChange} />} />
-              <MobileMetric label="Impressions" value={offer.impressionsLabel} />
-              <MobileMetric label="Revenue" value={offer.revenueLabel} />
-            </div>
-            <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eef2f7] pt-3 text-xs">
-              <span className="min-w-0 truncate text-[#687080]">{offer.primaryPlacement}</span>
-              <span className="shrink-0 font-semibold text-[#7c3aed]">View details</span>
-            </div>
-          </article>
-        ))}
-      </div>
-      <div className="hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[980px] border-collapse text-left text-sm">
-          <thead>
-            <tr className="border-b border-[#e5e7e7] text-xs uppercase tracking-[0.08em] text-[#687080]">
-              <th className="px-5 py-3 font-semibold">Offer</th>
-              <th className="min-w-40 px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Impressions</th>
-              <th className="px-4 py-3 font-semibold">CTR</th>
-              <th className="px-4 py-3 font-semibold">Claim rate</th>
-              <th className="px-4 py-3 font-semibold">Revenue</th>
-              <th className="px-4 py-3 font-semibold">Placement</th>
-              <th className="px-5 py-3 font-semibold">
-                <button
-                  className="group flex flex-col items-start gap-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
-                  onClick={toggleCtrChangeSort}
-                  title="vs previous 30 days"
-                  aria-label={`CTR Change, vs previous 30 days. ${sortLabel}`}
-                >
-                  <span className="flex items-center gap-1">
-                    CTR Change
-                    <span className="text-sm leading-none text-[#647084]">
-                      {ctrChangeSort === "asc" ? "↓" : ctrChangeSort === "desc" ? "↑" : "↕"}
-                    </span>
-                  </span>
-                  <span className="normal-case tracking-normal text-[#9aa3b2]">
-                    vs previous 30 days
-                  </span>
-                </button>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
+      {hasOffers ? (
+        <>
+          <div className="divide-y divide-[#eef2f7] md:hidden">
             {offers.map((offer) => (
-              <tr
+              <article
                 key={offer.id}
-                className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafafa]"
+                className="cursor-pointer bg-white p-4 transition hover:bg-[#fafbfd]"
+                role="button"
                 tabIndex={0}
                 onClick={() => onOpenOffer(offer.id)}
                 onKeyDown={(event) => {
@@ -1316,48 +1483,143 @@ function OfferTable({
                   }
                 }}
               >
-                <td className="px-5 py-4">
-                  <div className="flex items-center gap-3">
-                    <ProductThumbnail
-                      image={offer.productImage}
-                      alt={offer.productImageAlt}
-                      productName={offer.name}
-                      size="sm"
-                    />
-                    <div className="min-w-0">
-                      <button
-                        className="text-left font-semibold text-[#101218] hover:text-[#7c3aed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onOpenOffer(offer.id);
-                        }}
-                      >
+                <div className="flex items-start gap-3">
+                  <ProductThumbnail
+                    image={offer.productImage}
+                    alt={offer.productImageAlt}
+                    productName={offer.name}
+                    size="sm"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-2">
+                      <h3 className="text-sm font-semibold leading-5 text-[#101218]">
                         {offer.name}
-                      </button>
-                      <p className="mt-1 text-xs text-[#687080]">{offer.proposition}</p>
+                      </h3>
+                      <StatusBadge status={offer.status} />
                     </div>
+                    <p className="mt-2 text-xs leading-5 text-[#687080]">{offer.proposition}</p>
                   </div>
-                </td>
-                <td className="min-w-40 px-4 py-4">
-                  <StatusBadge status={offer.status} />
-                </td>
-                <td className="px-4 py-4 font-medium text-[#374151]">
-                  {offer.impressionsLabel}
-                </td>
-                <td className="px-4 py-4 font-medium text-[#374151]">{offer.ctrLabel}</td>
-                <td className="px-4 py-4 font-medium text-[#374151]">
-                  {offer.claimRateLabel}
-                </td>
-                <td className="px-4 py-4 font-medium text-[#374151]">{offer.revenueLabel}</td>
-                <td className="px-4 py-4 text-[#374151]">{offer.primaryPlacement}</td>
-                <td className="px-5 py-4">
-                  <CtrChange value={offer.ctrChange} />
-                </td>
-              </tr>
+                </div>
+                <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                  <MobileMetric label="CTR" value={offer.ctrLabel} />
+                  <MobileMetric label="CTR change" value={<CtrChange value={offer.ctrChange} />} />
+                  <MobileMetric label="Impressions" value={offer.impressionsLabel} />
+                  <MobileMetric label="Revenue" value={offer.revenueLabel} />
+                </div>
+                <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eef2f7] pt-3 text-xs">
+                  <span className="min-w-0 truncate text-[#687080]">{offer.primaryPlacement}</span>
+                  <span className="shrink-0 font-semibold text-[#7c3aed]">View details</span>
+                </div>
+              </article>
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+          <div className="hidden overflow-x-auto md:block">
+            <table className="w-full min-w-[980px] border-collapse text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#e5e7e7] text-xs uppercase tracking-[0.08em] text-[#687080]">
+                  <th className="px-5 py-3 font-semibold">Offer</th>
+                  <th className="min-w-40 px-4 py-3 font-semibold">Status</th>
+                  <th className="px-4 py-3 font-semibold">Impressions</th>
+                  <th className="px-4 py-3 font-semibold">CTR</th>
+                  <th className="px-4 py-3 font-semibold">Claim rate</th>
+                  <th className="px-4 py-3 font-semibold">Revenue</th>
+                  <th className="px-4 py-3 font-semibold">Placement</th>
+                  <th className="px-5 py-3 font-semibold">
+                    <button
+                      className="group flex flex-col items-start gap-0.5 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
+                      onClick={toggleCtrChangeSort}
+                      title="vs previous 30 days"
+                      aria-label={`CTR Change, vs previous 30 days. ${sortLabel}`}
+                    >
+                      <span className="flex items-center gap-1">
+                        CTR Change
+                        <span className="text-sm leading-none text-[#647084]">
+                          {ctrChangeSort === "asc" ? "↓" : ctrChangeSort === "desc" ? "↑" : "↕"}
+                        </span>
+                      </span>
+                      <span className="normal-case tracking-normal text-[#9aa3b2]">
+                        vs previous 30 days
+                      </span>
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((offer) => (
+                  <tr
+                    key={offer.id}
+                    className="cursor-pointer border-b border-[#eef2f7] last:border-0 hover:bg-[#fafafa]"
+                    tabIndex={0}
+                    onClick={() => onOpenOffer(offer.id)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onOpenOffer(offer.id);
+                      }
+                    }}
+                  >
+                    <td className="px-5 py-4">
+                      <div className="flex items-center gap-3">
+                        <ProductThumbnail
+                          image={offer.productImage}
+                          alt={offer.productImageAlt}
+                          productName={offer.name}
+                          size="sm"
+                        />
+                        <div className="min-w-0">
+                          <button
+                            className="text-left font-semibold text-[#101218] hover:text-[#7c3aed] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onOpenOffer(offer.id);
+                            }}
+                          >
+                            {offer.name}
+                          </button>
+                          <p className="mt-1 text-xs text-[#687080]">{offer.proposition}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="min-w-40 px-4 py-4">
+                      <StatusBadge status={offer.status} />
+                    </td>
+                    <td className="px-4 py-4 font-medium text-[#374151]">
+                      {offer.impressionsLabel}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-[#374151]">{offer.ctrLabel}</td>
+                    <td className="px-4 py-4 font-medium text-[#374151]">
+                      {offer.claimRateLabel}
+                    </td>
+                    <td className="px-4 py-4 font-medium text-[#374151]">{offer.revenueLabel}</td>
+                    <td className="px-4 py-4 text-[#374151]">{offer.primaryPlacement}</td>
+                    <td className="px-5 py-4">
+                      <CtrChange value={offer.ctrChange} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      ) : (
+        <div className="px-5 py-10">
+          <div className="mx-auto max-w-md text-center">
+            <span className="inline-flex rounded-full border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-xs font-semibold text-[#7c3aed]">
+              Empty
+            </span>
+            <h3 className="mt-4 text-xl font-semibold text-[#101218]">No offers match this view</h3>
+            <p className="mt-2 text-sm leading-6 text-[#687080]">
+              Adjust the filters or search term to return offer performance rows.
+            </p>
+            <button
+              className="mt-5 inline-flex h-10 items-center rounded-lg bg-[#111827] px-4 text-sm font-semibold text-white hover:bg-[#2b3442] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed]"
+              onClick={clearOfferFilters}
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

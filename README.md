@@ -29,6 +29,7 @@ That led to a few key decisions:
 - Show **performance trends over time** on Offer Detail so users can understand whether an offer is improving, declining, or stable.
 - Break performance down by **placement** to show where an issue is concentrated, and by **mobile vs desktop** to understand whether device context is contributing to it.
 - Add short **plain-language summaries** alongside charts and tables so users don’t have to interpret every metric themselves.
+- Include product states for **default, loading, claimed/success, error, and empty** so the prototype covers the key non-happy paths.
 - Reveal deeper analysis progressively, moving from **Identify → Understand → Investigate**.
 
 The supplied data gave me the starting point:
