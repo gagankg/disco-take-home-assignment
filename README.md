@@ -1,5 +1,7 @@
 # Disco - Brand Performance Dashboard (Option A)
 
+Live deployment: https://vilnius-zeta.vercel.app
+
 ## What I built and why
 
 I built a decision-support dashboard for brand managers managing post-purchase offers.
