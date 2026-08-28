@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
 
 type OfferStatus = "Needs attention" | "On track" | "Top performer";
@@ -731,8 +732,8 @@ export default function Home() {
       <div className="flex min-h-screen">
         <Sidebar activeNav={activeNav} onSelect={setActiveNav} onOverview={openOverview} />
         <section className="min-w-0 flex-1">
-          <TopBar />
-          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-6 px-8 py-6">
+          <TopBar activeNav={activeNav} onOverview={openOverview} onOffers={openOffers} />
+          <div className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 px-4 py-4 sm:px-6 sm:py-6 lg:gap-6 lg:px-8">
             {selectedOfferId ? (
               <OfferDetail
                 offer={selectedOffer}
@@ -823,15 +824,49 @@ function Sidebar({
   );
 }
 
-function TopBar() {
+function TopBar({
+  activeNav,
+  onOverview,
+  onOffers,
+}: {
+  activeNav: string;
+  onOverview: () => void;
+  onOffers: () => void;
+}) {
+  const items = [
+    { label: "Overview", onClick: onOverview },
+    { label: "Offers", onClick: onOffers },
+  ];
+
   return (
     <header className="border-b border-[#e5e7eb] bg-white/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center justify-between px-8">
-        <div>
-          <h1 className="text-lg font-semibold text-[#101218]">
+      <div className="mx-auto flex min-h-16 max-w-[1440px] flex-col justify-center gap-3 px-4 py-3 sm:px-6 lg:h-16 lg:flex-row lg:items-center lg:justify-between lg:px-8 lg:py-0">
+        <div className="flex items-center gap-3">
+          <span className="flex size-8 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#7c3aed_0%,#3b82f6_100%)] text-xs font-bold text-white shadow-sm lg:hidden">
+            D
+          </span>
+          <h1 className="text-base font-semibold text-[#101218] sm:text-lg">
             Brand performance dashboard
           </h1>
         </div>
+        <nav
+          aria-label="Mobile navigation"
+          className="grid grid-cols-2 gap-1 rounded-xl border border-[#e5e7eb] bg-[#f5f7fa] p-1 lg:hidden"
+        >
+          {items.map((item) => (
+            <button
+              key={item.label}
+              className={`h-9 rounded-lg text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7c3aed] ${
+                activeNav === item.label
+                  ? "bg-white text-[#7c3aed] shadow-sm"
+                  : "text-[#647084] hover:bg-white hover:text-[#101218]"
+              }`}
+              onClick={item.onClick}
+            >
+              {item.label}
+            </button>
+          ))}
+        </nav>
       </div>
     </header>
   );
@@ -1142,7 +1177,7 @@ function OfferTable({
   }
 
   return (
-    <section className="rounded-2xl border border-[#e5e7eb] bg-white" aria-labelledby="offers-heading">
+    <section className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white" aria-labelledby="offers-heading">
       <div className="border-b border-[#e5e7e7] p-5">
         <div className="flex flex-col justify-between gap-4 xl:flex-row xl:items-center">
           <div>
@@ -1156,7 +1191,7 @@ function OfferTable({
             </label>
             <input
               id="offer-search"
-              className="h-9 w-56 rounded-lg border border-[#d1d5db] bg-white px-3 text-sm outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#c4b5fd]"
+              className="h-9 w-full rounded-lg border border-[#d1d5db] bg-white px-3 text-sm outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#c4b5fd] sm:w-56"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Search offers"
@@ -1191,7 +1226,52 @@ function OfferTable({
           ))}
         </div>
       </div>
-      <div className="overflow-x-auto">
+      <div className="divide-y divide-[#eef2f7] md:hidden">
+        {offers.map((offer) => (
+          <article
+            key={offer.id}
+            className="cursor-pointer bg-white p-4 transition hover:bg-[#fafbfd]"
+            role="button"
+            tabIndex={0}
+            onClick={() => onOpenOffer(offer.id)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onOpenOffer(offer.id);
+              }
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <ProductThumbnail
+                image={offer.productImage}
+                alt={offer.productImageAlt}
+                productName={offer.name}
+                size="sm"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-col gap-2">
+                  <h3 className="text-sm font-semibold leading-5 text-[#101218]">
+                    {offer.name}
+                  </h3>
+                  <StatusBadge status={offer.status} />
+                </div>
+                <p className="mt-2 text-xs leading-5 text-[#687080]">{offer.proposition}</p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+              <MobileMetric label="CTR" value={offer.ctrLabel} />
+              <MobileMetric label="CTR change" value={<CtrChange value={offer.ctrChange} />} />
+              <MobileMetric label="Impressions" value={offer.impressionsLabel} />
+              <MobileMetric label="Revenue" value={offer.revenueLabel} />
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3 border-t border-[#eef2f7] pt-3 text-xs">
+              <span className="min-w-0 truncate text-[#687080]">{offer.primaryPlacement}</span>
+              <span className="shrink-0 font-semibold text-[#7c3aed]">View details</span>
+            </div>
+          </article>
+        ))}
+      </div>
+      <div className="hidden overflow-x-auto md:block">
         <table className="w-full min-w-[980px] border-collapse text-left text-sm">
           <thead>
             <tr className="border-b border-[#e5e7e7] text-xs uppercase tracking-[0.08em] text-[#687080]">
@@ -1279,6 +1359,21 @@ function OfferTable({
         </table>
       </div>
     </section>
+  );
+}
+
+function MobileMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string | ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-[#eef2f7] bg-[#fafbfd] px-3 py-2">
+      <p className="text-[11px] font-medium text-[#687080]">{label}</p>
+      <div className="mt-1 font-semibold text-[#101218]">{value}</div>
+    </div>
   );
 }
 
@@ -1463,7 +1558,7 @@ function OfferDetailHeader({ offer, onBack }: { offer: Offer; onBack: () => void
       </button>
       <div className="rounded-2xl border border-[#e5e7eb] bg-white p-5">
         <div className="flex flex-col justify-between gap-5 xl:flex-row xl:items-start">
-          <div className="flex min-w-0 items-center gap-4">
+          <div className="flex min-w-0 items-start gap-3 sm:items-center sm:gap-4">
             <ProductThumbnail
               image={offer.productImage}
               alt={offer.productImageAlt}
@@ -1472,7 +1567,7 @@ function OfferDetailHeader({ offer, onBack }: { offer: Offer; onBack: () => void
             />
             <div className="min-w-0">
               <p className="text-sm font-medium text-[#687080]">Offer details</p>
-              <h2 className="mt-1 text-2xl font-semibold tracking-normal text-[#101218]">
+              <h2 className="mt-1 text-xl font-semibold tracking-normal text-[#101218] sm:text-2xl">
                 {offer.name}
               </h2>
               <p className="mt-1 text-base font-medium text-[#374151]">
@@ -1595,7 +1690,7 @@ function PerformanceTimeline({
           </button>
         </div>
       </div>
-      <div className="mt-5 h-[320px] rounded-2xl border border-[#e5e7e7] bg-[#f5f7fa] p-4">
+      <div className="mt-5 h-[280px] rounded-2xl border border-[#e5e7e7] bg-[#f5f7fa] p-3 sm:h-[320px] sm:p-4">
         <LineChart
           values={trend.values}
           annotation={`${offer.name} CTR trend`}
@@ -2331,7 +2426,7 @@ function PlacementDetailDrawer({
       aria-modal="true"
       aria-labelledby="placement-panel-title"
     >
-      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-[#e5e7eb] bg-white p-6 shadow-xl">
+      <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-[#e5e7eb] bg-white p-4 shadow-xl sm:p-6">
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-sm font-medium text-[#687080]">Placement detail</p>
@@ -2347,7 +2442,7 @@ function PlacementDetailDrawer({
           </button>
         </div>
 
-        <div className="mt-6 grid grid-cols-2 gap-3">
+        <div className="mt-6 grid gap-3 sm:grid-cols-2">
           <EvidenceStat label="Impressions" value={placement.impressions} />
           <EvidenceStat label="CTR" value={placement.ctr} tone="negative" />
           <EvidenceStat label="30 days ago" value={placement.previousCtr} />
@@ -2363,7 +2458,7 @@ function PlacementDetailDrawer({
         {placement.deviceBreakdown ? (
           <div className="mt-6 rounded-2xl border border-[#e5e7eb] bg-white p-4">
             <h3 className="text-base font-semibold text-[#101218]">Device breakdown</h3>
-            <div className="mt-4 grid grid-cols-2 gap-3">
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
               {placement.deviceBreakdown.map((item) => (
                 <EvidenceStat key={item.device} label={item.device} value={`CTR ${item.ctr}`} />
               ))}
@@ -2420,7 +2515,7 @@ function Select({
       </label>
       <select
         id={id}
-        className="h-9 rounded-lg border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#374151] outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#c4b5fd]"
+        className="h-9 w-full rounded-lg border border-[#d1d5db] bg-white px-3 text-sm font-medium text-[#374151] outline-none focus:border-[#7c3aed] focus:ring-2 focus:ring-[#c4b5fd] sm:w-auto"
         value={value}
         onChange={(event) => onChange(event.target.value)}
       >

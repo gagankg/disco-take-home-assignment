@@ -49,9 +49,3 @@ input {
 button {
   cursor: pointer;
 }
-
-@media (max-width: 1023px) {
-  body {
-    min-width: 920px;
-  }
-}
