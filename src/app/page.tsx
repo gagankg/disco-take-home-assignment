@@ -1479,7 +1479,7 @@ function OfferDetailHeader({ offer, onBack }: { offer: Offer; onBack: () => void
                 {offer.proposition}
               </p>
               <p className="mt-2 text-sm text-[#687080]">
-                Triggered by {offer.triggerProduct} · Primary placement: {offer.primaryPlacement}
+                Triggered by {offer.triggerProduct}
               </p>
             </div>
           </div>
