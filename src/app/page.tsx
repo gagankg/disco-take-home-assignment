@@ -1484,10 +1484,6 @@ function OfferDetailHeader({ offer, onBack }: { offer: Offer; onBack: () => void
             </div>
           </div>
           <div className="flex max-w-xl flex-col items-start gap-3 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-medium text-[#687080]">Current status</span>
-              <StatusBadge status={offer.status} />
-            </div>
             <div>
               <p className="mb-2 text-xs font-medium text-[#687080]">Active placements</p>
               <div className="flex flex-wrap gap-2">
